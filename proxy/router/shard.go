@@ -379,3 +379,47 @@ func (s *GlobalTableShard) FindForKey(key interface{}) (int, error) {
 func NewGlobalTableShard() *GlobalTableShard {
 	return &GlobalTableShard{}
 }
+
+type ShtPaymentOrderShard struct {
+	DateMonthShard
+	SnowflakeEpoch uint64
+	StartId        uint64
+	DefaultDate    int
+}
+
+func (s *ShtPaymentOrderShard) FindForKey(key interface{}) (int, error) {
+	id, err := s.KeyToUint64(key)
+	if err != nil {
+		return -1, err
+	}
+	fmt.Println("id:%+v,startId:%+v", id, s.StartId)
+	if id <= s.StartId {
+		fmt.Println("default_date", s)
+		return s.DefaultDate, nil
+	}
+
+	timestamp, err := s.snowflakeId2Timestamp(id)
+	if err != nil {
+		return -1, err
+	}
+	return s.DateMonthShard.FindForKey(timestamp)
+}
+
+func (r *ShtPaymentOrderShard) KeyToUint64(key interface{}) (uint64, error) {
+	switch val := key.(type) {
+	case uint64:
+		return val, nil
+	case int64:
+		return uint64(val), nil
+	case string:
+		return strconv.ParseUint(val, 10, 64)
+	}
+
+	return 0, NewKeyError("Illegal snowflake id")
+}
+
+// snowflake格式ID转时间戳（秒）
+func (r *ShtPaymentOrderShard) snowflakeId2Timestamp(id uint64) (int, error) {
+	return int(((id>>22) + r.SnowflakeEpoch) / 1000), nil
+
+}
