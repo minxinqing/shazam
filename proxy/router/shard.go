@@ -392,9 +392,8 @@ func (s *ShtPaymentOrderShard) FindForKey(key interface{}) (int, error) {
 	if err != nil {
 		return -1, err
 	}
-	fmt.Println("id:%+v,startId:%+v", id, s.StartId)
+
 	if id <= s.StartId {
-		fmt.Println("default_date", s)
 		return s.DefaultDate, nil
 	}
 
