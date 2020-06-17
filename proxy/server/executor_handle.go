@@ -159,7 +159,8 @@ func (se *SessionExecutor) getPlan(ns *Namespace, db string, sql string) (plan.P
 
 	rt := ns.GetRouter()
 	seq := ns.GetSequences()
-	p, err := plan.BuildPlan(n, db, sql, rt, seq)
+	phyDBs := ns.GetPhysicalDBs()
+	p, err := plan.BuildPlan(n, phyDBs, db, sql, rt, seq)
 	if err != nil {
 		return nil, fmt.Errorf("create select plan error: %v", err)
 	}
@@ -290,6 +291,9 @@ func (se *SessionExecutor) handleSetVariable(v *ast.VariableAssignment) error {
 }
 
 func (se *SessionExecutor) handleSetAutoCommit(autocommit bool) error {
+	se.txLock.Lock()
+	defer se.txLock.Unlock()
+
 	if autocommit {
 		se.status |= mysql.ServerStatusAutocommit
 		if se.status&mysql.ServerStatusInTrans > 0 {

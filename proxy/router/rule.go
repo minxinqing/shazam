@@ -53,6 +53,7 @@ const (
 	MycatStringRuleType     = models.ShardMycatString
 	MycatMurmurRuleType     = models.ShardMycatMURMUR
 	MycatPaddingModRuleType = models.ShardMycatPaddingMod
+	ShtPaymentOrderRuleType = models.ShtPaymentOrder
 
 	MinMonthDaysCount = 28
 	MaxMonthDaysCount = 31
@@ -457,6 +458,13 @@ func parseRuleSliceInfos(cfg *models.Shard) ([]int, map[int]int, Shard, error) {
 			return nil, nil, nil, err
 		}
 		shard := NewGlobalTableShard()
+		return subTableIndexs, tableToSlice, shard, nil
+	case ShtPaymentOrderRuleType:
+		subTableIndexs, tableToSlice, err := parseDateMonthRuleSliceInfos(cfg.DateRange, cfg.Slices)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		shard := &ShtPaymentOrderShard{SnowflakeEpoch: cfg.ShtPaymentOrderShard.SnowflakeEpoch, StartId: cfg.ShtPaymentOrderShard.StartId, DefaultDate: cfg.ShtPaymentOrderShard.DefaultDate}
 		return subTableIndexs, tableToSlice, shard, nil
 	default:
 		return nil, nil, nil, errors.ErrUnknownRuleType

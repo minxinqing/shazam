@@ -18,7 +18,9 @@ import (
 	"encoding/json"
 	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/nooncall/shazam/backend"
 	"github.com/nooncall/shazam/models"
 	"github.com/nooncall/shazam/parser"
 	"github.com/nooncall/shazam/proxy/router"
@@ -40,8 +42,9 @@ type OrderSequence struct {
 }
 
 type PlanInfo struct {
-	rt   *router.Router
-	seqs *sequence.SequenceManager
+	phyDBs map[string]string
+	rt     *router.Router
+	seqs   *sequence.SequenceManager
 }
 
 func NewOrderSequence(db, table, pkName string) *OrderSequence {
@@ -73,7 +76,7 @@ func getTestFunc(info *PlanInfo, test SQLTestcase) func(t *testing.T) {
 			t.Fatalf("parse sql error: %v", err)
 		}
 
-		p, err := BuildPlan(stmt, test.db, test.sql, info.rt, info.seqs)
+		p, err := BuildPlan(stmt, info.phyDBs, test.db, test.sql, info.rt, info.seqs)
 		if err != nil {
 			if test.hasErr {
 				t.Logf("BuildPlan got expect error, sql: %s, err: %v", test.sql, err)
@@ -95,11 +98,13 @@ func getTestFunc(info *PlanInfo, test SQLTestcase) func(t *testing.T) {
 		case *ExplainPlan:
 			actualSQLs = plan.sqls
 		case *UnshardPlan:
-			if test.hasErr {
-				t.Logf("find unshard plan in shard testing")
-				return
+			actualSQLs = make(map[string]map[string][]string)
+			dbSQLs := make(map[string][]string)
+			if db, ok := info.phyDBs[plan.db]; ok {
+				plan.db = db
 			}
-			t.Fatalf("find unshard plan in shard testing")
+			dbSQLs[plan.db] = []string{plan.sql}
+			actualSQLs[backend.DefaultSlice] = dbSQLs
 		}
 
 		if actualSQLs == nil {
@@ -161,6 +166,9 @@ func checkSQLs(expect, actual map[string]map[string][]string) bool {
 }
 
 func preparePlanInfo() (*PlanInfo, error) {
+	// set time zone for testing date shard
+	time.Local = time.FixedZone("CST", 28800)
+
 	nsStr := `
 {
     "name": "shazam_namespace_1",
@@ -469,8 +477,9 @@ func preparePlanInfo() (*PlanInfo, error) {
 	}
 
 	planInfo := &PlanInfo{
-		rt:   rt,
-		seqs: seqs,
+		phyDBs: nsModel.DefaultPhyDBS,
+		rt:     rt,
+		seqs:   seqs,
 	}
 	return planInfo, nil
 }
